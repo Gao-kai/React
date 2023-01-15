@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>生成器的使用</title>
+	</head>
+	<body>
+		<script type="text/javascript">
+
+			/* 创建一个生成器函数  */
+			function* generatorDemo(){
+				const result = yield new Promise((resolve,reject)=>{
+					/* 模拟异步网络请求 并将异步请求的结果返回 */
+					setTimeout(()=>{
+						resolve('hello result')
+					},2000)
+				})
+				console.log('异步执行的结果:',result)
+			}   
+			
+			/* 执行生成器函数的结果是返回一个迭代器对象 */
+			const demoIt = generatorDemo();
+			
+			/**
+			 * 第一次next是等于return了一个promise实例对象出来
+			 * 第二次next是为了将resolve的结果赋值给外部的result变量
+			 * 因为赋值它是两步操作，第一步计算右边的值，第二步将值赋值给左侧的变量
+			 * 
+			 */
+			demoIt.next().value.then(res=>{
+				demoIt.next(res); /* 此时控制台打印resolve的结果：hello result */
+			})
+
+			
+			
+			
+			
+				
+		</script>
+	</body>
+</html>
+

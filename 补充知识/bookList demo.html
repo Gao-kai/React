@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<title>Hello React</title>
+		<style type="text/css">
+			table{
+				width: 750px;
+				border-collapse: collapse;
+			}
+			tr,td,th{
+				text-align: center;
+				height: 40px;
+				border: 1px solid #e6e6e6;
+			}
+			.total-price{
+				color: red;
+			}
+		</style>
+	</head>
+	<body>
+		<div id="app"></div>
+
+		<!-- 引入react相关依赖 -->
+		<script src="https://unpkg.com/react@16/umd/react.development.js" crossorigin></script>
+		<script src="https://unpkg.com/react-dom@16/umd/react-dom.development.js" crossorigin></script>
+		<script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+
+		<!-- 编写react代码 -->
+		<script type="text/babel">
+			// 模拟数据
+			const bookList = [{
+				id:1,
+				name:'《JS高级程序设计》',
+				date:'2010-04',
+				price:'85',
+				count:3
+			},{
+				id:2,
+				name:'《ES6入门进阶》',
+				date:'2017-04',
+				price:'45',
+				count:2
+			},{
+				id:3,
+				name:'《JS设计模式》',
+				date:'2010-01',
+				price:'38',
+				count:3
+			},{
+				id:4,
+				name:'《CSS权威指南》',
+				date:'2016-08',
+				price:'50',
+				count:4
+			},{
+				id:4,
+				name:'《深入Vue.js》',
+				date:'2019-09',
+				price:'65',
+				count:5
+			}];
+			
+			class App extends React.Component{
+				constructor(){
+					super();
+					this.state = {
+						bookList,
+					}
+				}
+
+				renderTable(){
+					let {bookList} = this.state;
+					return (
+						<div>
+							<h2>前端开发书籍列表</h2>
+							<table>
+								<thead>
+									<tr>
+										<th>序号</th>
+										<th>书籍名称</th>
+										<th>出版日期</th>
+										<th>价格</th>
+										<th>购买数量</th>
+										<th>操作</th>
+									</tr>
+								</thead>
+								<tbody>
+									{
+										bookList.map((item,index)=>{
+											return (
+												<tr>
+													<td>{index+1}</td>
+													<td>{item.name}</td>
+													<td>{item.date}</td>
+													<td>{this.formatBookPrice(item.price)}</td>
+													<td>
+														<button 
+															onClick={()=>{this.btnClick(item,index,'decrease')}}
+															disabled={item.count===1}
+														>-</button>
+														<span style={{padding:'0 8px'}}>{item.count}</span>
+														<button onClick={this.btnClick.bind(this,item,index,'increase')}>+</button>
+													</td>
+													<td>
+														<button onClick={()=>{this.removeBook(index)}}>移除</button>
+													</td>
+												</tr>
+											)
+										})
+									}
+								</tbody>
+							</table>
+							<h2 className={'total-price'}>总价格：{this.getTotalPrice()}</h2>
+						</div>
+					)
+				}
+				
+				renderEmpty(){
+					return (<h2>购物车为空~</h2>)
+				}
+				
+				render(){
+					return this.state.bookList.length ? this.renderTable() : this.renderEmpty()
+				}
+				
+				btnClick(item,index,type){
+					let cloneList = [...this.state.bookList];
+					if(type==='decrease'){
+						cloneList[index].count--;
+					}else if(type==='increase'){
+						cloneList[index].count++;
+					}
+					this.setState({
+						bookList:cloneList,
+					})
+				}
+				
+				removeBook(index){
+					let restBooks = this.state.bookList.filter((item,index1)=>index!== index1);
+					this.setState({
+						bookList: restBooks
+					})
+				}
+				
+				/**
+				 * 图书价格格式化函数 
+				 * @param {number} price 价格
+				 * @param {number} place 要保留的小数位
+				 * @param {string} currencyType 前加人民币￥还是美元$
+				 * @return {string} 转化后的价格
+				 * 
+				**/
+				formatBookPrice(price,place=2,currencyType='￥'){
+					if(typeof price !== 'number'){
+						price = Number(price) || 0;
+					}
+					return currencyType + ' ' + price.toFixed(place);
+				}
+				
+				getTotalPrice(){
+					let totalPrice = this.state.bookList.reduce((prev,item)=>{
+						return prev + (item.count * item.price);
+					},0)
+					return this.formatBookPrice(totalPrice);
+				}
+			}
+			
+			// 渲染视图
+			ReactDOM.render(<App/>,document.getElementById('app'));
+		 
+		 </script>
+	</body>
+</html>
