@@ -48,7 +48,7 @@ function createRef(){
 	}
 };
 
-export const React = {
+let React = {
 	createElement,
 	Component,
 	createRef,

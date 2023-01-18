@@ -1,4 +1,4 @@
-import {createDom} from './ReactDom.js';
+import {createDom,compareTwoVdom} from './ReactDom.js';
 /* 
 	定义一个updateQuene单例模式 
 	所有组件共用一个
@@ -40,13 +40,22 @@ class Updater {
 		this.emitUpdate();
 	}
 
-	emitUpdate(){
-		// 如果是批量更新模式 就将此updater实例存入updateQuene的队列中
-		if(updateQuene.isBatchingUpdate){
-			updateQuene.add(this);
-		}else{
-			// 否则执行同步更新组件
+	// 统一处理state和props引起的更新
+	emitUpdate(nextProps){
+		this.nextProps = nextProps;
+		/* 
+			如果接收到了新的属性
+			或者当前处于非批量更新模式
+			那么直接走组件更新 也就是同步更新模式
+		*/
+		if(this.nextProps || !(updateQuene.isBatchingUpdate)){
 			this.updateComponent();
+		}else{
+			/* 
+				否则走异步更新那一套
+				就将此updater实例存入updateQuene的队列中
+			*/
+			updateQuene.add(this);
 		}
 	}
 	
@@ -72,18 +81,19 @@ class Updater {
 	}
 	
 	updateComponent(){
-		let {classInstance,pengingStates} = this;
-		// 说明有等待更新的state 先判断是否需要更新
-		if(pengingStates.length){
-			shouldUpdate(classInstance,this.getState());
+		let {classInstance,pengingStates,nextProps} = this;
+		// 说明有等待更新的state 先判断是否需要更新 并将新的props和state传入
+		if(nextProps || pengingStates.length){
+			shouldUpdate(classInstance,nextProps,this.getState());
 		}
 		
 	}
 }
 
-function shouldUpdate(classInstance,nextState){
-	// 将更新后的state重新挂载到组件实例上
+function shouldUpdate(classInstance,nextProps,nextState){
+	// 将更新后的state和props重新挂载到组件实例上 此时实例状态会发生变化 不管之后是否更新视图
 	classInstance.state = nextState;
+	classInstance.props = nextProps || classInstance.props;
 
 	// 什么周期函数 shouldComponentUpdate
 	if(classInstance.shouldComponentUpdate && typeof classInstance.shouldComponentUpdate === 'function'){
@@ -129,16 +139,45 @@ class Component {
 			this.componentWillUpdate();
 		}
 
-		// 执行实例的render方法得到新的虚拟DOM
-		let renderVdom = this.render();
+		// 新的生命周期函数
+		if(this.ownVdom?.type?.getDerivedStateFromProps){
+			let newState = this.ownVdom?.type?.getDerivedStateFromProps(this.props,this.state);
+			if(newState){
+				this.state = newState;
+			}
+		}
 
-		// 更新视图
-		updateClassComponent(this,renderVdom);
-	}
-	
-	
+		// 执行实例的render方法得本次更新之后的虚拟DOM
+		let newRenderVdom = this.render();
+
+		// 从类的实例上通过oldVdom拿到旧的虚拟dom 记着：无论何时都必须保证可以通过实例的oldVdom属性拿到旧的虚拟dom
+		let oldRenderVdom = this.oldVdom;
+
+		// 拿到之前真实dom要挂载的父节点 也就是#root 在第一次挂载的时候在旧的oldVdOM上挂载了一个dom属性指向生成的真实dom
+		let parentDom = this.oldVdom.dom.parentNode;
+
+		// 在修改dom之前获取到一些更新前的dom信息 生命周期函数getSnapShotBeforeUpdate 将返回值传递给componentDidUpdate
+		let extraArgs;
+		if(this.getSnapShotBeforeUpdate){
+			extraArgs = this.getSnapShotBeforeUpdate();
+		}
+
+		// 实现dom-diff对比 对比的过程中会完成更新 并且返回更新之后新的的虚拟dom
+		let currentVdom = compareTwoVdom(oldRenderVdom,newRenderVdom,parentDom);
+
+		// 将这一次生成的虚拟dom当做下一次更新的旧的虚拟dom 方便下一次更新
+		this.oldVdom = currentVdom;
+
+		// 生命周期函数componentDidUpdate 组件更新完毕
+		if(this.componentDidUpdate && typeof this.componentDidUpdate === 'function'){
+			this.componentDidUpdate(this.state,this.props,extraArgs);
+		}
+	}	
 }
 
+
+
+/* 不走这个暴力更新的逻辑了 */
 function updateClassComponent(classInstance,renderVdom){
 	// 获取旧的真实dom元素
 	let oldDOM = classInstance.dom;
